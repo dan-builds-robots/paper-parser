@@ -6,7 +6,9 @@ import { examplePaperText, lorenIpsum } from "./stuff";
 function App() {
   const [showUploadPanel, setShowUploadPanel] = useState(false);
   const [paperUrl, setPaperUrl] = useState("");
+  const [gitHubText, setGithubText] = useState(false);
   const [parsingPaper, setParsingPaper] = useState(false);
+  const [fetching, setFetching] = useState(false);
 
   // paper information
   const [paperTitle, setPaperTitle] = useState("");
@@ -25,6 +27,7 @@ function App() {
 
   const parsePaper = async () => {
     setParsingPaper(true);
+    getGitContent();
     // const paperTextFileResponse = await axios.post(
     //   "http://localhost:8080/parsePaper",
     //   { paperUrl: paperUrl }
@@ -220,6 +223,24 @@ function App() {
     return paperEmbeddingsSimilarities
       .slice(0, 10)
       .map(({ embedding, text, similarity }) => text);
+  };
+
+  const getGitContent = () => {
+    // console.log("got here");
+    axios
+      .post("http://localhost:8080/githubContent", {
+        repoUrl: "https://github.com/uhlerlab/STACI",
+        filePath: "clusterComposition.ipynb",
+      })
+      .then(async (response) => {
+        console.log("Content fetched:", response.data.content);
+        setGithubText(response.data.content);
+        setFetching(false);
+      })
+      .catch((error) => {
+        console.error("Error fetching content:", error);
+        setFetching(false);
+      });
   };
 
   return (

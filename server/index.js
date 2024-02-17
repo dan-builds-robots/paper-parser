@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import ConvertAPI from "convertapi";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
+import axios from "axios";
 
 // for api endpoints
 const app = express();
@@ -210,3 +211,45 @@ app.post("/questionAnswering", async (req, res) => {
     })
     .catch((err) => res.send(err));
 });
+
+// Define a route to fetch content of files from GitHub repository
+app.post("/githubContent", async (req, res) => {
+  console.log("got here");
+  try {
+    const { repoUrl, filePath } = req.body;
+    // const { repoUrl, filePath } = req.query;
+    if (!repoUrl || !filePath) {
+      return res
+        .status(400)
+        .json({ error: "Repo URL and file path are required" });
+    }
+
+    console.log("got here");
+    // Extract owner and repo name from the 5GitHub URL
+    const urlParts = repoUrl.split("/");
+    console.log("url Parts", urlParts);
+    const owner = urlParts[urlParts.length - 2];
+    console.log("owner", owner);
+    const repoName = urlParts[urlParts.length - 1].replace(".git", "");
+    console.log("repoName", repoName);
+
+    // Fetch file content using GitHub API
+    const response = await axios.get(
+      `https://api.github.com/repos/${owner}/${repoName}/contents/${filePath}`
+    );
+    const content = Buffer.from(response.data.content, "base64").toString(
+      "utf-8"
+    );
+    console.log("success, here is content: ");
+    console.log(content);
+
+    res.status(200).json({ content });
+  } catch (error) {
+    console.error("Error fetching GitHub content:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// app.listen(PORT, () => {
+//   console.log(`Server is running on port ${PORT}`);
+// });
