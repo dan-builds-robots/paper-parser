@@ -2,16 +2,25 @@ import "./App.css";
 import axios from "axios";
 import { useState } from "react";
 
-//data will be the string we send from our server
-const apiCall = () => {
-  axios.get("http://localhost:8080").then((data) => {
-    //this console.log will be in our frontend console
-    console.log(data);
-  });
-};
-
 function App() {
   const [showUploadPanel, setShowUploadPanel] = useState(false);
+  const [paperUrl, setPaperUrl] = useState("");
+  const [fetching, setFetching] = useState(false);
+  const [paperText, setPaperText] = useState(false);
+
+  const parsePaper = () => {
+    axios
+      .post("http://localhost:8080/parsePaper", { paperUrl: paperUrl })
+      .then(async (paperTextFileResponse) => {
+        setFetching(false);
+        const paperTextFile = paperTextFileResponse.data;
+        console.log(paperTextFile);
+        const paperText_ = await (await fetch(paperTextFile.Url)).text();
+        console.log(paperText_);
+        setPaperText(paperText_);
+        setShowUploadPanel(false);
+      });
+  };
 
   return (
     <div
@@ -70,9 +79,14 @@ function App() {
 
       {showUploadPanel && (
         <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            parsePaper();
+            setFetching(true);
+          }}
           style={{
             padding: 20,
-            borderRadius: 20,
+            borderRadius: 14,
             boxShadow: "1px 1px 6px rgba(0, 0, 0, 0.3)",
             position: "absolute",
             backgroundColor: "white",
@@ -88,6 +102,7 @@ function App() {
         >
           <p>Paste url:</p>
           <input
+            autoFocus
             style={{
               height: 30,
               borderRadius: 8,
@@ -95,6 +110,7 @@ function App() {
               padding: 8,
               fontSize: 16,
             }}
+            onChange={(e) => setPaperUrl(e.currentTarget.value)}
           />
           <button
             style={{
@@ -105,15 +121,17 @@ function App() {
               padding: 12,
               borderRadius: 8,
               border: "none",
-              marginTop: 24,
+              marginTop: 20,
               cursor: "pointer",
               fontWeight: 700,
             }}
+            disabled={fetching}
           >
-            Parse Paper
+            {!fetching ? "Parse Paper" : "Parsing your paper..."}
           </button>
         </form>
       )}
+      {paperText && <p>{paperText}</p>}
     </div>
   );
 }
