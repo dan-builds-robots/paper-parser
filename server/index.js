@@ -12,10 +12,6 @@ app.listen(8080, () => {
   console.log("server listening on port 8080");
 });
 
-app.get("/", (req, res) => {
-  res.send("Hello from our server!");
-});
-
 app.post("/parsePaper", async (req, res) => {
   const paperUrl = req.body.paperUrl;
   console.log(`paperUrl: ${paperUrl}`);
