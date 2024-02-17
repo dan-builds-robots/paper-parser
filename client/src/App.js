@@ -12,22 +12,58 @@ const apiCall = () => {
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <button onClick={apiCall}>Make API Call</button>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        flexDirection: "column",
+        alignItems: "center",
+      }}
+    >
+      <div
+        style={{
+          height: 80,
+          display: "flex",
+          flexDirection: "column",
+          paddingLeft: 24,
+          backgroundColor: "white",
+          alignItems: "flex-start",
+          justifyContent: "flex-start",
+          width: "100%",
+        }}
+      >
+        <p
+          style={{
+            fontWeight: 600,
+            fontSize: 24,
+            color: "mediumseagreen",
+            cursor: "pointer",
+          }}
+          onClick={(e) => {
+            window.location.pathname = "/";
+          }}
         >
-          Learn React
-        </a>
-      </header>
+          PaperParser
+        </p>
+      </div>
+      <div style={{ height: 1, backgroundColor: "lightgray", width: "100%" }} />
+      <button
+        onClick={apiCall}
+        style={{
+          marginTop: 100,
+          padding: 20,
+          borderRadius: 8,
+          border: "none",
+          width: "fit-content",
+          backgroundColor: "mediumseagreen",
+          color: "white",
+          fontSize: 16,
+          fontWeight: 600,
+          cursor: "pointer",
+        }}
+      >
+        Upload Paper
+      </button>
     </div>
   );
 }
