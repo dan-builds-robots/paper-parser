@@ -50,16 +50,18 @@ function App() {
     console.log(paperText);
     setShowUploadPanel(false);
 
+    // get github link
+    const githubLink = getGithubLink(paperText);
+    setGithubLink(githubLink);
+
     // get title of paper
     await extractPaperTitle(paperText);
 
     // get summary of paper's abstract
     await extractPaperAbstractSummary(paperText);
 
-    // get github link
-    const githubLink = getGithubLink(paperText);
-    setGithubLink(githubLink);
-    getGitFiles(githubLink);
+    // get github files
+    await getGitFiles(githubLink);
 
     // get embeddings for paper
     await getPaperEmbeddings(paperText);
@@ -206,35 +208,36 @@ function App() {
       .map(({ embedding, text, similarity }) => text);
   };
 
-  const getGitFiles = (githubLink) => {
-    axios
-      .post("http://localhost:8080/githubFiles", {
-        repoUrl: githubLink,
-      })
-      .then(async (response) => {
-        console.log("Content fetched:", response.data.content);
-        const repoFiles = response.data.content;
-        const parsedCodes = {};
+  const getGitFiles = async (githubLink) => {
+    console.log("getting git files");
+    const response = await axios.post("http://localhost:8080/githubFiles", {
+      repoUrl: githubLink,
+    });
 
-        for (let file of repoFiles) {
-          if (hasFileExtension(file)) {
-            const parsedCode = await getGitCode(file);
-            if (/\S/.test(parsedCode)) {
-              // Check if contains non-whitespace characters
-              parsedCodes[file] = parsedCode;
-            }
-            // console.log("parsed code", parsedCode)
-            return getCodeSummaries(parsedCodes);
-          }
+    console.log("Content fetched:", response.data.content);
+    const repoFiles = response.data.content;
+    const parsedCodes = {};
+
+    for (let file of repoFiles) {
+      if (hasFileExtension(file)) {
+        const parsedCode = await getGitCode(githubLink, file);
+        if (/\S/.test(parsedCode)) {
+          // Check if contains non-whitespace characters
+          parsedCodes[file] = parsedCode;
         }
-        console.log("parsed code", Object.keys(parsedCodes));
-      })
-      .catch((error) => {
-        console.error("Error fetching content:", error);
-      });
+        console.log("parsed code", parsedCode);
+      }
+    }
+
+    const codeSummaries = await getCodeSummaries(parsedCodes);
+    console.log("code summaries:");
+    console.log(codeSummaries);
+    setGithubFiles(codeSummaries);
+
+    console.log("parsed code", Object.keys(parsedCodes));
   };
 
-  const getGitCode = async (file) => {
+  const getGitCode = async (githubLink, file) => {
     const urlParts = githubLink.split("/");
     const owner = urlParts[urlParts.length - 2];
     const repoName = urlParts[urlParts.length - 1].replace(".git", "");
@@ -257,8 +260,10 @@ function App() {
       });
   };
 
-  const getCodeSummaries = (parsedcodeMap) => {
-    let summarizedCode = {};
+  const getCodeSummaries = async (parsedcodeMap) => {
+    let summarizedCode = [];
+    console.log("parsed code map:");
+    console.log(parsedcodeMap);
     const filenames = Object.keys(parsedcodeMap);
     const sendRequest = async (filename) => {
       try {
@@ -269,7 +274,10 @@ function App() {
           }
         );
         console.log("Content fetched:", response.data.toString());
-        summarizedCode[filename] = response.data.toString();
+        summarizedCode.push({
+          title: filename,
+          summary: response.data.toString(),
+        });
       } catch (error) {
         console.error("Error fetching content:", error);
       }
@@ -283,7 +291,8 @@ function App() {
       }
       console.log(summarizedCode);
     };
-    sendRequestsSequentially();
+    await sendRequestsSequentially();
+    return summarizedCode;
   };
 
   //should be able to take output from getGitFiles and pass that into
