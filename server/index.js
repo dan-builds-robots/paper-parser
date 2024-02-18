@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import ConvertAPI from "convertapi";
+import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 
 // for api endpoints
 const app = express();
@@ -49,14 +50,6 @@ app.post("/parsePaper", async (req, res) => {
     { File: paperUrl },
     "pdf"
   );
-
-  const {
-    response: { Files },
-  } = jsonResponse;
-
-  const paperTextFile = Files[0];
-  console.log(paperTextFile);
-  res.send(paperTextFile);
 });
 
 app.post("/extractPaperTitle", async (req, res) => {
@@ -107,6 +100,113 @@ app.post("/extractPaperAbstractSummary", async (req, res) => {
         abstractSummaryJsonString
       ).abstractSummary;
       res.send(paperAbstractSummary);
+    })
+    .catch((err) => res.send(err));
+});
+
+const splitText = async (paperText) => {
+  const splitter = new RecursiveCharacterTextSplitter({
+    chunkSize: 1000,
+    chunkOverlap: 100,
+  });
+
+  return await splitter.splitText(paperText);
+};
+
+const createEmbeddings = async (listOfText) => {
+  const options = {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      Authorization: `Bearer ${togetherAiApiKey}`,
+    },
+    body: JSON.stringify({
+      model: "togethercomputer/m2-bert-80M-8k-retrieval",
+      input: listOfText,
+    }),
+  };
+
+  const responseJson = await (
+    await fetch("https://api.together.xyz/v1/embeddings", options)
+  ).json();
+
+  console.log("created embeddings...");
+  const embeddingsObjects = responseJson.data;
+  const embeddings = embeddingsObjects.map(
+    (embeddingObject) => embeddingObject.embedding
+  );
+  console.log(embeddings);
+  const paperEmbeddingsAndText = embeddings.map((embedding, index) => ({
+    embedding: embedding,
+    text: listOfText[index],
+  }));
+  return paperEmbeddingsAndText;
+};
+
+app.post("/createPaperEmbeddings", async (req, res) => {
+  const paperText = req.body.paperText;
+  const splitPaperText = await splitText(paperText);
+  console.log("this is the split text");
+  console.log(splitPaperText);
+  const embeddingsAndText = await createEmbeddings(splitPaperText);
+  res.send(embeddingsAndText);
+});
+
+app.post("/createQueryEmbedding", async (req, res) => {
+  const userQuery = req.body.userQuery;
+  const embeddingAndQuery = await createEmbeddings(userQuery);
+  console.log("got prompt embedding");
+  console.log(embeddingAndQuery);
+  res.send(embeddingAndQuery[0].embedding);
+});
+
+app.post("/questionAnswering", async (req, res) => {
+  console.log("entered question answering...");
+  const query = req.body.query;
+  const relatedPartsOfPaper = req.body.relatedPartsOfPaper;
+
+  const headers = new Headers({
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${togetherAiApiKey}`,
+  });
+
+  const data = {
+    model: "mistralai/Mixtral-8x7B-Instruct-v0.1",
+    max_tokens: 1024,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a chatbot, only answer the question by using the provided context. If your are unable to answer the question using the provided context, say so.",
+      },
+      {
+        role: "user",
+        content: `Here is parts of a research paper that may be relevant to my question: ${JSON.stringify(
+          relatedPartsOfPaper
+        )}`,
+      },
+      {
+        role: "user",
+        content: `Here is my question: ${query}`,
+      },
+    ],
+  };
+
+  const options = {
+    method: "POST",
+    headers,
+    body: JSON.stringify(data),
+  };
+
+  console.log("fetching response...");
+  fetch("https://api.together.xyz/v1/completions", options)
+    .then((response) => response.json())
+    .then((response) => {
+      console.log("got the response...");
+      console.log(response);
+      const responseText = response.choices[0].text;
+      res.send(responseText);
     })
     .catch((err) => res.send(err));
 });

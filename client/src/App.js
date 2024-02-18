@@ -1,6 +1,6 @@
 import "./App.css";
 import axios from "axios";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { examplePaperText, lorenIpsum } from "./stuff";
 
 function App() {
@@ -13,35 +13,93 @@ function App() {
   const [abstractSummary, setAbstractSummary] = useState("");
   const [githubLink, setGithubLink] = useState("");
 
+  const [messages, setMessages] = useState([]);
+
+  const [userQuery, setUserQuery] = useState("");
+  const [paperEmbeddings, setPaperEmbeddings] = useState([]);
+
   const resetPaper = () => {
     setPaperTitle("");
     setAbstractSummary("");
   };
+
   const parsePaper = async () => {
     setParsingPaper(true);
-    const paperTextFileResponse = await axios.post(
-      "http://localhost:8080/parsePaper",
-      { paperUrl: paperUrl }
-    );
+    // const paperTextFileResponse = await axios.post(
+    //   "http://localhost:8080/parsePaper",
+    //   { paperUrl: paperUrl }
+    // );
     setParsingPaper(false);
-    const paperTextFile = paperTextFileResponse.data;
-    const paperText = await (await fetch(paperTextFile.Url)).text();
-    // const paperText = examplePaperText;
+    // const paperTextFile = paperTextFileResponse.data;
+    // const paperText = await (await fetch(paperTextFile.Url)).text();
+    const paperText = examplePaperText;
     console.log(paperText);
     setShowUploadPanel(false);
 
     // get title of paper
-    extractPaperTitle(paperText);
+    await extractPaperTitle(paperText);
 
     // get summary of paper's abstract
-    extractPaperAbstractSummary(paperText);
+    await extractPaperAbstractSummary(paperText);
 
+    // get github link
     const githubLink = getGithubLink(paperText);
-    console.log(`github link...`);
-    console.log(githubLink);
+    setGithubLink(githubLink);
 
-    const _githubLink = githubLink;
-    setGithubLink(_githubLink);
+    // get embeddings for paper
+    await getPaperEmbeddings(paperText);
+  };
+
+  const submitQuery = async () => {
+    setMessages([...messages, { sender: "You", messageContent: userQuery }]);
+    const oldUserQuery = userQuery;
+    setUserQuery("");
+    const messageHistory = document.getElementById("messageHistory");
+    messageHistory.scrollTop = messageHistory.scrollHeight + 100900;
+
+    console.log("getting query embedding");
+    console.log(`query: ${oldUserQuery}`);
+    const queryEmbeddingResponse = await axios.post(
+      "http://localhost:8080/createQueryEmbedding",
+      { userQuery: oldUserQuery }
+    );
+
+    console.log("response:");
+    console.log(queryEmbeddingResponse);
+    const queryEmbedding = queryEmbeddingResponse.data;
+    console.log("query embedding:");
+    console.log(queryEmbedding);
+
+    console.log("getting similar parts of paper");
+    const relatedPartsOfPaper = getRelevantPartsOfPaper(
+      paperEmbeddings,
+      queryEmbedding
+    );
+
+    console.log("got the most similar parts of paper");
+    console.log(relatedPartsOfPaper);
+
+    axios
+      .post("http://localhost:8080/questionAnswering", {
+        query: oldUserQuery,
+        relatedPartsOfPaper: relatedPartsOfPaper,
+      })
+      .then((response) => {
+        setMessages([
+          ...messages,
+          { sender: "PaperParser", messageContent: response.data },
+        ]);
+      });
+  };
+
+  const getPaperEmbeddings = async (paperText) => {
+    const paperEmbeddingsResponse = await axios.post(
+      "http://localhost:8080/createPaperEmbeddings",
+      { paperText: paperText }
+    );
+    console.log("got embeddings...");
+    console.log(paperEmbeddingsResponse.data);
+    setPaperEmbeddings(paperEmbeddingsResponse.data);
   };
 
   const extractPaperTitle = async (paperText) => {
@@ -125,6 +183,44 @@ function App() {
     return url;
   };
 
+  const computeCosineSimilarity = (vectorA, vectorB) => {
+    let dotproduct = 0;
+    let mA = 0;
+    let mB = 0;
+
+    for (let i = 0; i < vectorA.length; i++) {
+      dotproduct += vectorA[i] * vectorB[i];
+      mA += vectorA[i] * vectorA[i];
+      mB += vectorB[i] * vectorB[i];
+    }
+
+    mA = Math.sqrt(mA);
+    mB = Math.sqrt(mB);
+    let similarity = dotproduct / (mA * mB);
+    return similarity;
+  };
+
+  const getRelevantPartsOfPaper = (paperEmbeddings, promptEmbedding) => {
+    const paperEmbeddingsSimilarities = paperEmbeddings.map(
+      ({ embedding, text }) => ({
+        embedding: embedding,
+        text: text,
+        similarity: computeCosineSimilarity(embedding, promptEmbedding),
+      })
+    );
+
+    console.log(`similarities:`);
+    console.log(paperEmbeddingsSimilarities);
+
+    paperEmbeddingsSimilarities.sort(function (a, b) {
+      return b.similarity - a.similarity;
+    });
+
+    return paperEmbeddingsSimilarities
+      .slice(0, 10)
+      .map(({ embedding, text, similarity }) => text);
+  };
+
   return (
     <div
       style={{
@@ -167,7 +263,7 @@ function App() {
               style={{
                 fontWeight: 600,
                 fontSize: 24,
-                color: "mediumseagreen",
+                color: "#7532a8",
                 cursor: "pointer",
               }}
               onClick={(e) => {
@@ -195,7 +291,7 @@ function App() {
                 borderRadius: 8,
                 border: "none",
                 width: "fit-content",
-                backgroundColor: "mediumseagreen",
+                backgroundColor: "#7532a8",
                 color: "white",
                 fontSize: 16,
                 fontWeight: 600,
@@ -229,6 +325,7 @@ function App() {
               position: "absolute",
               backgroundColor: "black",
               opacity: 0.5,
+              zIndex: 3,
             }}
             onClick={() => setShowUploadPanel(false)}
           />
@@ -280,7 +377,7 @@ function App() {
             <button
               style={{
                 alignSelf: "flex-end",
-                backgroundColor: "mediumseagreen",
+                backgroundColor: "#7532a8",
                 color: "white",
                 fontSize: 16,
                 padding: 12,
@@ -373,35 +470,9 @@ function App() {
                 color: abstractSummary ? "black" : "gray",
               }}
             >
-              {abstractSummary ? abstractSummary : lorenIpsum}
-            </div>
-          </div>
-
-          {/* right side */}
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              overflow: "auto",
-              padding: 32,
-              margin: 16,
-              paddingTop: 0,
-              height: "inherit",
-              lineHeight: 2,
-            }}
-          >
-            <div style={{ marginBottom: 16 }}>
-              <p style={{ fontWeight: 700, paddingBottom: 0 }}>Github Link</p>
-              <a
-                href={githubLink ? githubLink : undefined}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <p style={{ color: githubLink ? "black" : "gray" }}>
-                  {githubLink ? githubLink : "no Github link in paper"}
-                </p>
-              </a>
+              {abstractSummary
+                ? abstractSummary
+                : "Abstract summary will appear here."}
             </div>
 
             {/* abstract */}
@@ -414,7 +485,149 @@ function App() {
                 color: abstractSummary ? "black" : "gray",
               }}
             >
-              {abstractSummary ? abstractSummary : lorenIpsum}
+              {abstractSummary
+                ? abstractSummary
+                : "Code Overview will appear here."}
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontWeight: 700, paddingBottom: 0 }}>Github Link</p>
+              <a
+                href={githubLink ? githubLink : undefined}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <p style={{ color: githubLink ? "black" : "gray" }}>
+                  {githubLink ? githubLink : "no Github link in paper"}
+                </p>
+              </a>
+            </div>
+          </div>
+
+          {/* right side */}
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "auto",
+              height: "inherit",
+              lineHeight: 2,
+              padding: 32,
+            }}
+          >
+            <div
+              style={{
+                flex: 1,
+                width: "100%",
+                alignItems: "center",
+                display: "flex",
+                margin: 0,
+                overflow: "hidden",
+                flexDirection: "column",
+              }}
+            >
+              {/* history */}
+              <div
+                style={{
+                  flex: 1,
+                  width: "100%",
+                  overflow: "auto",
+                  marginBottom: 16,
+                }}
+                id={"messageHistory"}
+              >
+                {messages.map(({ sender, messageContent }, index) => {
+                  return (
+                    <div
+                      style={{
+                        borderRadius: 8,
+                        backgroundColor: "rgb(240, 240, 240)",
+                        padding: 8,
+                        lineHeight: 1.5,
+                        marginBottom: 16,
+                      }}
+                      key={`message ${index}`}
+                    >
+                      <p
+                        style={{
+                          fontSize: 16,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {sender}
+                      </p>
+                      <span>{messageContent}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* question-asking */}
+              <div
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  float: "inline-end",
+                  maxHeight: 100,
+                  padding: 0,
+                  margin: 0,
+                }}
+              >
+                <textarea
+                  // disabled={paperTitle === ""}
+                  autoFocus={paperTitle}
+                  placeholder="Ask a question about this research paper"
+                  style={{
+                    borderRadius: 8,
+                    margin: 0,
+                    padding: 12,
+                    lineHeight: 2,
+                    border: "1px solid lightgray",
+                    boxSizing: "border-box",
+                    width: "100%",
+                    // height: "100%",
+                    fontFamily: "inherit",
+                    resize: "none",
+                    outline: "none",
+                    verticalAlign: "top",
+                    fontSize: 16,
+                  }}
+                  onFocus={(e) => e.preventDefault()}
+                  value={userQuery}
+                  onKeyDown={(e) => {
+                    // user hit enter without shift
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      submitQuery();
+                    }
+                  }}
+                  onChange={(e) => {
+                    setUserQuery(e.currentTarget.value);
+                  }}
+                />
+
+                <div
+                  style={{
+                    position: "absolute",
+                    backgroundColor: "#7532a8",
+                    borderRadius: 8,
+                    bottom: 8,
+                    width: 34,
+                    height: 34,
+                    color: "white",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    right: 8,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                  onClick={(e) => submitQuery()}
+                >
+                  ↑
+                </div>
+              </div>
             </div>
           </div>
         </div>
