@@ -483,10 +483,9 @@ function App() {
             height: 90,
             display: "flex",
             alignItems: "flex-end",
-            justifyContent: "center",
+            justifyContent: "flex-start",
             paddingBottom: 20,
-            marginLeft: 32,
-            marginRight: 32,
+            width: "100%",
           }}
         >
           <p
@@ -494,7 +493,10 @@ function App() {
               fontSize: 28,
               fontWeight: 600,
               color: paperTitle ? "black" : "gray",
-              textAlign: "center",
+              textAlign: "left",
+              paddingLeft: 48,
+              paddingRight: 48,
+              // backgroundColor: "red",
             }}
           >
             {paperTitle ? paperTitle : "Paper Title"}
