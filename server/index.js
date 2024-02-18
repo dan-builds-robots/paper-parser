@@ -220,17 +220,6 @@ app.post("/questionAnswering", async (req, res) => {
     .catch((err) => res.send(err));
 });
 
-// async function listRepositoryContents(owner, repo, path = '') {
-//   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-//   try {
-//     const response = await axios.get(url);
-//     return response.data.map(item => item.path);
-//   } catch (error) {
-//     console.error('Error listing repository contents:', error);
-//     throw error;
-//   }
-// }
-
 app.post("/githubFiles", async (req, res) => {
   try {
     const { repoUrl } = req.body;

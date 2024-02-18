@@ -235,12 +235,16 @@ function App() {
     setGithubFiles(codeSummaries);
 
     console.log("parsed code", Object.keys(parsedCodes));
+
   };
 
   const getGitCode = async (githubLink, file) => {
     const urlParts = githubLink.split("/");
+    console.log("urlParts", urlParts); 
     const owner = urlParts[urlParts.length - 2];
+    console.log("owner", owner); 
     const repoName = urlParts[urlParts.length - 1].replace(".git", "");
+    console.log("repo name", repoName); 
     const filePath = file;
     // console.log("current file", filePath);
 
