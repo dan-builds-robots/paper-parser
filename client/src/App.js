@@ -3,10 +3,6 @@ import axios from "axios";
 import { useRef, useState } from "react";
 import { examplePaperText, lorenIpsum } from "./stuff";
 
-// need to be able to get file path for each file in repo
-// api request that can get the list of file paths given repo link
-const PLACEHOLDER = "https://github.com/uhlerlab/STACI";
-
 function hasFileExtension(fileName) {
   const parts = fileName.split(".");
   return parts.length > 1;
@@ -15,28 +11,28 @@ function hasFileExtension(fileName) {
 function App() {
   const [showUploadPanel, setShowUploadPanel] = useState(false);
   const [paperUrl, setPaperUrl] = useState("");
-  const [gitHubText, setGithubText] = useState(false);
   const [parsingPaper, setParsingPaper] = useState(false);
-  const [fetching, setFetching] = useState(false);
 
   // paper information
   const [paperTitle, setPaperTitle] = useState("");
   const [abstractSummary, setAbstractSummary] = useState("");
   const [githubLink, setGithubLink] = useState("");
+  const [paperEmbeddings, setPaperEmbeddings] = useState([]);
 
   const [messages, setMessages] = useState([]);
-
   const [userQuery, setUserQuery] = useState("");
-  const [paperEmbeddings, setPaperEmbeddings] = useState([]);
 
   const resetPaper = () => {
     setPaperTitle("");
     setAbstractSummary("");
+    setGithubLink("");
+    setMessages([]);
+    paperEmbeddings([]);
   };
 
   const parsePaper = async () => {
+    resetPaper(true);
     setParsingPaper(true);
-    // getGitContent();
     // const paperTextFileResponse = await axios.post(
     //   "http://localhost:8080/parsePaper",
     //   { paperUrl: paperUrl }
@@ -57,6 +53,7 @@ function App() {
     // get github link
     const githubLink = getGithubLink(paperText);
     setGithubLink(githubLink);
+    getGitFiles();
 
     // get embeddings for paper
     await getPaperEmbeddings(paperText);
@@ -69,27 +66,16 @@ function App() {
     const messageHistory = document.getElementById("messageHistory");
     messageHistory.scrollTop = messageHistory.scrollHeight + 100900;
 
-    console.log("getting query embedding");
-    console.log(`query: ${oldUserQuery}`);
     const queryEmbeddingResponse = await axios.post(
       "http://localhost:8080/createQueryEmbedding",
       { userQuery: oldUserQuery }
     );
 
-    console.log("response:");
-    console.log(queryEmbeddingResponse);
     const queryEmbedding = queryEmbeddingResponse.data;
-    console.log("query embedding:");
-    console.log(queryEmbedding);
-
-    console.log("getting similar parts of paper");
     const relatedPartsOfPaper = getRelevantPartsOfPaper(
       paperEmbeddings,
       queryEmbedding
     );
-
-    console.log("got the most similar parts of paper");
-    console.log(relatedPartsOfPaper);
 
     axios
       .post("http://localhost:8080/questionAnswering", {
@@ -140,26 +126,6 @@ function App() {
     console.log(response);
     setAbstractSummary(response.data);
   };
-
-  // const getGitHubLinks = (text) => {
-  //   let splitText = text.split(/[\s]+/);
-  //   let mainLinks = [];
-  //   let refLinks = [];
-  //   let refIndex = splitText.lastIndexOf("References");
-
-  //   function cleanAndAppend(link, linksList) {
-  //     if (link.slice(-1) === ".") linksList.push(link.slice(0, -1));
-  //     else linksList.push(link);
-  //   }
-
-  //   for (let i = 0; i < splitText.length; i++) {
-  //     if (splitText[i].toLowerCase().includes("github.com")) {
-  //       if (i < refIndex) cleanAndAppend(splitText[i], mainLinks);
-  //       else cleanAndAppend(splitText[i], refLinks);
-  //     }
-  //   }
-  //   return [mainLinks, refLinks];
-  // };
 
   const getGithubLink = (paperText) => {
     // remove all spaces
@@ -237,7 +203,7 @@ function App() {
   const getGitFiles = () => {
     axios
       .post("http://localhost:8080/githubFiles", {
-        repoUrl: PLACEHOLDER, //later change this to gitHublink
+        repoUrl: githubLink,
       })
       .then(async (response) => {
         console.log("Content fetched:", response.data.content);
@@ -256,20 +222,14 @@ function App() {
           }
         }
         console.log("parsed code", Object.keys(parsedCodes));
-        // console.log(parsedCodes['.gitmodules'])
-        // console.log(parsedCodes['.gitignore'])
-        // return response.data.content;
-        // setGithubText(response.data.content);
       })
       .catch((error) => {
         console.error("Error fetching content:", error);
       });
   };
 
-  const getGitCode = (file) => {
-    // try {
-    const repoUrl = PLACEHOLDER;
-    const urlParts = repoUrl.split("/");
+  const getGitCode = async (file) => {
+    const urlParts = githubLink.split("/");
     const owner = urlParts[urlParts.length - 2];
     const repoName = urlParts[urlParts.length - 1].replace(".git", "");
     const filePath = file;
@@ -281,12 +241,9 @@ function App() {
         `https://api.github.com/repos/${owner}/${repoName}/contents/${filePath}`
       )
       .then(async (response) => {
-        // const content = Buffer.from(response.data.content, 'base64').toString('utf-8');
         const content = response.data.content
           ? atob(response.data.content)
           : ""; // Check if content is not falsy
-        // console.log("success, here is code content: ")
-        // console.log(content)
         return content;
       })
       .catch((error) => {
