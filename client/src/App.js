@@ -27,7 +27,7 @@ function App() {
     setAbstractSummary("");
     setGithubLink("");
     setMessages([]);
-    paperEmbeddings([]);
+    setPaperEmbeddings([]);
   };
 
   const parsePaper = async () => {
