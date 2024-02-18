@@ -92,8 +92,8 @@ app.post("/extractPaperAbstractSummary", async (req, res) => {
 
   const prompt = `Below is the first several words of a research paper: \n${req.body.paperText.substring(
     0,
-    1000
-  )}\nReturn a summary of the abstract of this paper in the following format: {"abstractSummary": "<summary of abstract>"}`;
+    50000
+  )}\n\nReturn a summary of the abstract of this paper in the following format: {"abstractSummary": "<summary of abstract>"}`;
 
   console.log(`here is the prompt:`);
   console.log(prompt);

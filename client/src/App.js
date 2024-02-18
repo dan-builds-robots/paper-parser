@@ -36,11 +36,11 @@ function App() {
     // get summary of paper's abstract
     extractPaperAbstractSummary(paperText);
 
-    const githubLinks = getGitHubLinks(paperText);
-    console.log(`github links...`);
-    console.log(githubLinks);
+    const githubLink = getGithubLink(paperText);
+    console.log(`github link...`);
+    console.log(githubLink);
 
-    const _githubLink = githubLinks[1][0];
+    const _githubLink = githubLink;
     setGithubLink(_githubLink);
   };
 
@@ -70,24 +70,59 @@ function App() {
     setAbstractSummary(response.data);
   };
 
-  const getGitHubLinks = (text) => {
-    let splitText = text.split(/[\s \n]+/);
-    let mainLinks = [];
-    let refLinks = [];
-    let refIndex = splitText.lastIndexOf("References");
+  // const getGitHubLinks = (text) => {
+  //   let splitText = text.split(/[\s]+/);
+  //   let mainLinks = [];
+  //   let refLinks = [];
+  //   let refIndex = splitText.lastIndexOf("References");
 
-    function clean_and_append(link, linksList) {
-      if (link.slice(-1) === ".") linksList.push(link.slice(0, -1));
-      else linksList.push(link);
-    }
+  //   function cleanAndAppend(link, linksList) {
+  //     if (link.slice(-1) === ".") linksList.push(link.slice(0, -1));
+  //     else linksList.push(link);
+  //   }
 
-    for (let i = 0; i < splitText.length; i++) {
-      if (splitText[i].toLowerCase().includes("github.com")) {
-        if (i < refIndex) clean_and_append(splitText[i], mainLinks);
-        else clean_and_append(splitText[i], refLinks);
+  //   for (let i = 0; i < splitText.length; i++) {
+  //     if (splitText[i].toLowerCase().includes("github.com")) {
+  //       if (i < refIndex) cleanAndAppend(splitText[i], mainLinks);
+  //       else cleanAndAppend(splitText[i], refLinks);
+  //     }
+  //   }
+  //   return [mainLinks, refLinks];
+  // };
+
+  const getGithubLink = (paperText) => {
+    // remove all spaces
+    paperText = paperText.replace(/[\n\s]/g, "");
+
+    //   make text all lower case
+    paperText = paperText.toLowerCase();
+
+    let linkText = "github.com";
+    let matchIndex = 0;
+    let foundUrl = false;
+
+    let url = "";
+    for (let i = 0; i < paperText.length; i++) {
+      if (foundUrl) {
+        if ([",", "."].includes(paperText[i])) {
+          break;
+        }
+        url += paperText[i];
+        continue;
+      }
+      if (paperText[i] === linkText[matchIndex]) {
+        matchIndex += 1;
+      } else {
+        matchIndex = 0;
+      }
+
+      if (matchIndex === linkText.length) {
+        console.log("MATCH!");
+        url = "https://github.com";
+        foundUrl = true;
       }
     }
-    return [mainLinks, refLinks];
+    return url;
   };
 
   return (
