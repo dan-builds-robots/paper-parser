@@ -21,6 +21,12 @@ function App() {
 
   const [messages, setMessages] = useState([]);
   const [userQuery, setUserQuery] = useState("");
+  const [selectedFileIndex, setSelectedFileIndex] = useState(0);
+
+  const [githubFiles, setGithubFiles] = useState([
+    { title: "index.js", summary: "loren ipsum" },
+    { title: "App.js", summary: "loren ipsum tasdfwef" },
+  ]);
 
   const resetPaper = () => {
     setPaperTitle("");
@@ -540,18 +546,40 @@ function App() {
             </div>
 
             {/* abstract */}
-            <p style={{ fontWeight: 700, paddingBottom: 0 }}>Code Overview</p>
+            <p style={{ fontWeight: 700, paddingBottom: 0, marginBottom: 8 }}>
+              File-by-File Code Overview
+            </p>
             <div
               style={{
                 flex: 1,
                 marginTop: 0,
                 paddingBottom: 0,
-                color: abstractSummary ? "black" : "gray",
+                color: githubFiles ? "black" : "gray",
               }}
             >
-              {abstractSummary
-                ? abstractSummary
-                : "Code Overview will appear here."}
+              {githubFiles ? (
+                <div>
+                  <select
+                    style={{
+                      padding: 8,
+                      borderRadius: 8,
+                      borderColor: "lightgray",
+                      outline: "none",
+                      backgroundColor: "rgba(240, 240, 240, 1)",
+                      fontSize: 14,
+                    }}
+                    onChange={(e) => setSelectedFileIndex(e.target.value)}
+                  >
+                    {githubFiles.map(({ title, summary }, index) => {
+                      return <option value={index}>{title}</option>;
+                    })}
+                  </select>
+
+                  <div>{githubFiles[selectedFileIndex].summary}</div>
+                </div>
+              ) : (
+                "Code Overview will appear here."
+              )}
             </div>
 
             <div style={{ marginBottom: 16 }}>
