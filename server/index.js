@@ -51,6 +51,14 @@ app.post("/parsePaper", async (req, res) => {
     { File: paperUrl },
     "pdf"
   );
+
+  const {
+    response: { Files },
+  } = jsonResponse;
+
+  const paperTextFile = Files[0];
+  console.log(paperTextFile);
+  res.send(paperTextFile);
 });
 
 app.post("/extractPaperTitle", async (req, res) => {

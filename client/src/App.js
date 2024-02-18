@@ -21,6 +21,12 @@ function App() {
 
   const [messages, setMessages] = useState([]);
   const [userQuery, setUserQuery] = useState("");
+  const [selectedFileIndex, setSelectedFileIndex] = useState(0);
+  const [chatbotEnabled, setChatbotEnabled] = useState(false);
+
+  const [githubFiles, setGithubFiles] = useState([
+    { title: "Select File", summary: "Summary will appear here." },
+  ]);
 
   const resetPaper = () => {
     setPaperTitle("");
@@ -33,16 +39,20 @@ function App() {
   const parsePaper = async () => {
     resetPaper(true);
     setParsingPaper(true);
-    // const paperTextFileResponse = await axios.post(
-    //   "http://localhost:8080/parsePaper",
-    //   { paperUrl: paperUrl }
-    // );
+    const paperTextFileResponse = await axios.post(
+      "http://localhost:8080/parsePaper",
+      { paperUrl: paperUrl }
+    );
     setParsingPaper(false);
-    // const paperTextFile = paperTextFileResponse.data;
-    // const paperText = await (await fetch(paperTextFile.Url)).text();
-    const paperText = examplePaperText;
+    const paperTextFile = paperTextFileResponse.data;
+    const paperText = await (await fetch(paperTextFile.Url)).text();
+    // const paperText = examplePaperText;
     console.log(paperText);
     setShowUploadPanel(false);
+
+    // get github link
+    const githubLink = getGithubLink(paperText);
+    setGithubLink(githubLink);
 
     // get title of paper
     await extractPaperTitle(paperText);
@@ -50,10 +60,8 @@ function App() {
     // get summary of paper's abstract
     await extractPaperAbstractSummary(paperText);
 
-    // get github link
-    const githubLink = getGithubLink(paperText);
-    setGithubLink(githubLink);
-    getGitFiles(githubLink);
+    // get github files
+    await getGitFiles(githubLink);
 
     // get embeddings for paper
     await getPaperEmbeddings(paperText);
@@ -200,32 +208,34 @@ function App() {
       .map(({ embedding, text, similarity }) => text);
   };
 
-  const getGitFiles = (githubLink) => {
-    axios
-      .post("http://localhost:8080/githubFiles", {
-        repoUrl: githubLink,
-      })
-      .then(async (response) => {
-        console.log("Content fetched:", response.data.content);
-        const repoFiles = response.data.content;
-        const parsedCodes = {};
+  const getGitFiles = async (githubLink) => {
+    console.log("getting git files");
+    const response = await axios.post("http://localhost:8080/githubFiles", {
+      repoUrl: githubLink,
+    });
 
-        for (let file of repoFiles) {
-          if (hasFileExtension(file)) {
-            const parsedCode = await getGitCode(githubLink, file);
-            if (/\S/.test(parsedCode)) {
-              // Check if contains non-whitespace characters
-              parsedCodes[file] = parsedCode;
-            }
-            // console.log("parsed code", parsedCode)
-            return getCodeSummaries(parsedCodes);
-          }
+    console.log("Content fetched:", response.data.content);
+    const repoFiles = response.data.content;
+    const parsedCodes = {};
+
+    for (let file of repoFiles) {
+      if (hasFileExtension(file)) {
+        const parsedCode = await getGitCode(githubLink, file);
+        if (/\S/.test(parsedCode)) {
+          // Check if contains non-whitespace characters
+          parsedCodes[file] = parsedCode;
         }
-        // console.log("parsed code", Object.keys(parsedCodes)); CURRENTLY ERRORING
-      })
-      .catch((error) => {
-        console.error("Error fetching content:", error);
-      });
+        console.log("parsed code", parsedCode);
+      }
+    }
+
+    const codeSummaries = await getCodeSummaries(parsedCodes);
+    console.log("code summaries:");
+    console.log(codeSummaries);
+    setGithubFiles(codeSummaries);
+
+    console.log("parsed code", Object.keys(parsedCodes));
+
   };
 
   const getGitCode = async (githubLink, file) => {
@@ -254,8 +264,10 @@ function App() {
       });
   };
 
-  const getCodeSummaries = (parsedcodeMap) => {
-    let summarizedCode = {};
+  const getCodeSummaries = async (parsedcodeMap) => {
+    let summarizedCode = [];
+    console.log("parsed code map:");
+    console.log(parsedcodeMap);
     const filenames = Object.keys(parsedcodeMap);
     const sendRequest = async (filename) => {
       try {
@@ -266,7 +278,10 @@ function App() {
           }
         );
         console.log("Content fetched:", response.data.toString());
-        summarizedCode[filename] = response.data.toString();
+        summarizedCode.push({
+          title: filename,
+          summary: response.data.toString(),
+        });
       } catch (error) {
         console.error("Error fetching content:", error);
       }
@@ -280,7 +295,8 @@ function App() {
       }
       console.log(summarizedCode);
     };
-    sendRequestsSequentially();
+    await sendRequestsSequentially();
+    return summarizedCode;
   };
 
   //should be able to take output from getGitFiles and pass that into
@@ -480,10 +496,9 @@ function App() {
             height: 90,
             display: "flex",
             alignItems: "flex-end",
-            justifyContent: "center",
+            justifyContent: "flex-start",
             paddingBottom: 20,
-            marginLeft: 32,
-            marginRight: 32,
+            width: "100%",
           }}
         >
           <p
@@ -491,7 +506,10 @@ function App() {
               fontSize: 28,
               fontWeight: 600,
               color: paperTitle ? "black" : "gray",
-              textAlign: "center",
+              textAlign: "left",
+              paddingLeft: 48,
+              paddingRight: 48,
+              // backgroundColor: "red",
             }}
           >
             {paperTitle ? paperTitle : "Paper Title"}
@@ -541,34 +559,6 @@ function App() {
                 ? abstractSummary
                 : "Abstract summary will appear here."}
             </div>
-
-            {/* abstract */}
-            <p style={{ fontWeight: 700, paddingBottom: 0 }}>Code Overview</p>
-            <div
-              style={{
-                flex: 1,
-                marginTop: 0,
-                paddingBottom: 0,
-                color: abstractSummary ? "black" : "gray",
-              }}
-            >
-              {abstractSummary
-                ? abstractSummary
-                : "Code Overview will appear here."}
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <p style={{ fontWeight: 700, paddingBottom: 0 }}>Github Link</p>
-              <a
-                href={githubLink ? githubLink : undefined}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <p style={{ color: githubLink ? "black" : "gray" }}>
-                  {githubLink ? githubLink : "no Github link in paper"}
-                </p>
-              </a>
-            </div>
           </div>
 
           {/* right side */}
@@ -583,122 +573,208 @@ function App() {
               padding: 32,
             }}
           >
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontWeight: 700, paddingBottom: 0 }}>Github Link</p>
+              <a
+                href={githubLink ? githubLink : undefined}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <p style={{ color: githubLink ? "black" : "gray" }}>
+                  {githubLink ? githubLink : "no Github link in paper."}
+                </p>
+              </a>
+            </div>
+
+            {/* code overview */}
+            <p style={{ fontWeight: 700, paddingBottom: 0, marginBottom: 8 }}>
+              File-by-File Code Overview
+            </p>
             <div
               style={{
                 flex: 1,
-                width: "100%",
-                alignItems: "center",
-                display: "flex",
-                margin: 0,
-                overflow: "hidden",
-                flexDirection: "column",
+                marginTop: 0,
+                paddingBottom: 0,
+                color: githubFiles ? "black" : "gray",
               }}
             >
-              {/* history */}
-              <div
-                style={{
-                  flex: 1,
-                  width: "100%",
-                  overflow: "auto",
-                  marginBottom: 16,
-                }}
-                id={"messageHistory"}
-              >
-                {messages.map(({ sender, messageContent }, index) => {
-                  return (
-                    <div
-                      style={{
-                        borderRadius: 8,
-                        backgroundColor: "rgb(240, 240, 240)",
-                        padding: 8,
-                        lineHeight: 1.5,
-                        marginBottom: 16,
-                      }}
-                      key={`message ${index}`}
-                    >
-                      <p
-                        style={{
-                          fontSize: 16,
-                          fontWeight: 700,
-                        }}
-                      >
-                        {sender}
-                      </p>
-                      <span>{messageContent}</span>
-                    </div>
-                  );
-                })}
-              </div>
+              {githubFiles.length ? (
+                <div>
+                  <select
+                    style={{
+                      padding: 8,
+                      borderRadius: 8,
+                      borderColor: "lightgray",
+                      outline: "none",
+                      backgroundColor: "rgba(240, 240, 240, 1)",
+                      fontSize: 14,
+                    }}
+                    onChange={(e) => setSelectedFileIndex(e.target.value)}
+                  >
+                    {githubFiles.map(({ title, summary }, index) => {
+                      return <option value={index}>{title}</option>;
+                    })}
+                  </select>
 
-              {/* question-asking */}
-              <div
-                style={{
-                  position: "relative",
-                  width: "100%",
-                  float: "inline-end",
-                  maxHeight: 100,
-                  padding: 0,
-                  margin: 0,
-                }}
-              >
-                <textarea
-                  // disabled={paperTitle === ""}
-                  autoFocus={paperTitle}
-                  placeholder="Ask a question about this research paper"
-                  style={{
-                    borderRadius: 8,
-                    margin: 0,
-                    padding: 12,
-                    lineHeight: 2,
-                    border: "1px solid lightgray",
-                    boxSizing: "border-box",
-                    width: "100%",
-                    // height: "100%",
-                    fontFamily: "inherit",
-                    resize: "none",
-                    outline: "none",
-                    verticalAlign: "top",
-                    fontSize: 16,
-                  }}
-                  onFocus={(e) => e.preventDefault()}
-                  value={userQuery}
-                  onKeyDown={(e) => {
-                    // user hit enter without shift
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      submitQuery();
-                    }
-                  }}
-                  onChange={(e) => {
-                    setUserQuery(e.currentTarget.value);
-                  }}
-                />
-
-                <div
-                  style={{
-                    position: "absolute",
-                    backgroundColor: "#7532a8",
-                    borderRadius: 8,
-                    bottom: 8,
-                    width: 34,
-                    height: 34,
-                    color: "white",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    right: 8,
-                    fontWeight: 800,
-                    cursor: "pointer",
-                  }}
-                  onClick={(e) => submitQuery()}
-                >
-                  ↑
+                  <div
+                    style={{
+                      marginTop: 6,
+                      color:
+                        githubFiles[selectedFileIndex].title === "Select File"
+                          ? "gray"
+                          : "black",
+                    }}
+                  >
+                    {githubFiles[selectedFileIndex].summary}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <p style={{ color: "gray" }}>Code Overview will appear here.</p>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* chat bot */}
+      {chatbotEnabled ? (
+        <div
+          style={{
+            flex: 1,
+            width: 400,
+            border: "1px solid lightgray",
+            height: 400,
+            backgroundColor: "white",
+            borderRadius: 8,
+            alignItems: "center",
+            display: "flex",
+            margin: 0,
+            overflow: "hidden",
+            flexDirection: "column",
+            position: "absolute",
+            bottom: 16,
+            right: 16,
+          }}
+        >
+          {/* history */}
+          <div
+            style={{
+              flex: 1,
+              width: "100%",
+              overflow: "auto",
+              padding: 16,
+            }}
+            id={"messageHistory"}
+          >
+            {messages.map(({ sender, messageContent }, index) => {
+              return (
+                <div
+                  style={{
+                    borderRadius: 8,
+                    backgroundColor: "rgb(240, 240, 240)",
+                    padding: 8,
+                    marginLeft: 16,
+                    marginRight: 16,
+                    marginBottom: 16,
+                    lineHeight: 1.5,
+                  }}
+                  key={`message ${index}`}
+                >
+                  <p
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {sender}
+                  </p>
+                  <span>{messageContent}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div
+            style={{ height: 1, backgroundColor: "lightgray", width: "100%" }}
+          />
+
+          <textarea
+            // disabled={paperTitle === ""}
+            autoFocus={paperTitle}
+            placeholder="Ask a question about this research paper"
+            style={{
+              margin: 0,
+              padding: 12,
+              lineHeight: 2,
+              border: "0px solid lightgray",
+              boxSizing: "border-box",
+              width: "100%",
+              // height: "100%",
+              fontFamily: "inherit",
+              resize: "none",
+              outline: "none",
+              verticalAlign: "top",
+              fontSize: 16,
+            }}
+            onFocus={(e) => e.preventDefault()}
+            value={userQuery}
+            onKeyDown={(e) => {
+              // user hit enter without shift
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                submitQuery();
+              }
+            }}
+            onChange={(e) => {
+              setUserQuery(e.currentTarget.value);
+            }}
+          />
+
+          <div
+            style={{
+              position: "absolute",
+              backgroundColor: "#7532a8",
+              borderRadius: 8,
+              bottom: 8,
+              width: 34,
+              height: 34,
+              color: "white",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              right: 8,
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+            onClick={(e) => submitQuery()}
+          >
+            ↑
+          </div>
+        </div>
+      ) : (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 16,
+            right: 16,
+            width: 140,
+            height: 100,
+            backgroundColor: "#7532a8",
+            color: "white",
+            borderRadius: 8,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            fontWeight: 800,
+            fontSize: 16,
+            textAlign: "center",
+            cursor: "pointer",
+          }}
+          onClick={() => setChatbotEnabled(true)}
+        >
+          <p>Chat With This Paper</p>
+        </div>
+      )}
     </div>
   );
 }
