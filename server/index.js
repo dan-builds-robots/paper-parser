@@ -254,6 +254,45 @@ app.post("/githubFiles", async (req, res) => {
   }
 });
 
+function getFirstTwoSentences(text) {
+  // Define a regex pattern to match sentences.
+  // assumes sentences end with ".", "!", or "?" then a space or end of the string.
+  const sentencePattern = /[^.!?]+[.!?](\s|$)/g;
+  const matches = text.match(sentencePattern);
+  if (matches && matches.length >= 2) {
+    return matches.slice(0, 2).join("");
+  } else {
+    return text;
+  }
+}
+
+//get AI summaries of each of the code files passed in
+app.post("/githubSummaries", async (req, res) => {
+  const parsedCode = req.body.parsedCode;
+  // const returnMap = {};
+  const prompt = `Here is the code of a file from a github repository: \n${parsedCode.substring(
+    0,
+    1000
+  )}\n Summarize what the code does in no more than 2 sentences. Do not precede or follow this summary with any other text.`;
+  // can definitely make the prompt much simpler and shorter
+
+  console.log(`here is the prompt:`);
+  console.log(prompt);
+
+  fetch("https://api.together.xyz/v1/completions", getTogetherAiOptions(prompt))
+    .then((response) => response.json())
+    .then((response) => {
+      // console.log("filename", filename);
+      console.log("response", response);
+      // const codeSummaryString = response.choices[0].text;
+      const codeSummaryString = getFirstTwoSentences(response.choices[0].text);
+      // const paperTitle = JSON.parse(paperTitleJsonString).paperTitle;
+      res.send(codeSummaryString);
+      // returnMap[filename] = response
+    })
+    .catch((err) => res.send(err));
+});
+
 // app.listen(PORT, () => {
 //   console.log(`Server is running on port ${PORT}`);
 // });

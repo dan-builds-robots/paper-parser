@@ -252,6 +252,7 @@ function App() {
               parsedCodes[file] = parsedCode;
             }
             // console.log("parsed code", parsedCode)
+            return getCodeSummaries(parsedCodes);
           }
         }
         console.log("parsed code", Object.keys(parsedCodes));
@@ -272,7 +273,7 @@ function App() {
     const owner = urlParts[urlParts.length - 2];
     const repoName = urlParts[urlParts.length - 1].replace(".git", "");
     const filePath = file;
-    console.log("current file", filePath);
+    // console.log("current file", filePath);
 
     // Fetch file content using GitHub API
     return axios
@@ -293,8 +294,33 @@ function App() {
       });
   };
 
-  const getCodeSummaries = () => {
-    // want this to also account for overall code spec
+  const getCodeSummaries = (parsedcodeMap) => {
+    let summarizedCode = {};
+    const filenames = Object.keys(parsedcodeMap);
+    const sendRequest = async (filename) => {
+      try {
+        const response = await axios.post(
+          "http://localhost:8080/githubSummaries",
+          {
+            parsedCode: parsedcodeMap[filename],
+          }
+        );
+        console.log("Content fetched:", response.data.toString());
+        summarizedCode[filename] = response.data.toString();
+      } catch (error) {
+        console.error("Error fetching content:", error);
+      }
+    };
+
+    const sendRequestsSequentially = async () => {
+      for (let filename of filenames) {
+        await sendRequest(filename);
+        // Add a delay between each request (e.g., 1 second)
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+      console.log(summarizedCode);
+    };
+    sendRequestsSequentially();
   };
 
   //should be able to take output from getGitFiles and pass that into
