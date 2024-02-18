@@ -87,6 +87,7 @@ function App() {
       .then((response) => {
         setMessages([
           ...messages,
+          { sender: "You", messageContent: oldUserQuery },
           { sender: "PaperParser", messageContent: response.data },
         ]);
       });
