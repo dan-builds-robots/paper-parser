@@ -1,7 +1,7 @@
 import "./App.css";
 import axios from "axios";
-import { useRef, useState } from "react";
-import { examplePaperText, lorenIpsum } from "./stuff";
+import { useState } from "react";
+import { examplePaperText } from "./stuff";
 
 function hasFileExtension(fileName) {
   const parts = fileName.split(".");
@@ -53,7 +53,7 @@ function App() {
     // get github link
     const githubLink = getGithubLink(paperText);
     setGithubLink(githubLink);
-    getGitFiles();
+    getGitFiles(githubLink);
 
     // get embeddings for paper
     await getPaperEmbeddings(paperText);
@@ -200,7 +200,7 @@ function App() {
       .map(({ embedding, text, similarity }) => text);
   };
 
-  const getGitFiles = () => {
+  const getGitFiles = (githubLink) => {
     axios
       .post("http://localhost:8080/githubFiles", {
         repoUrl: githubLink,
@@ -474,7 +474,7 @@ function App() {
         {/* title */}
         <div
           style={{
-            height: 120,
+            height: 90,
             display: "flex",
             alignItems: "flex-end",
             justifyContent: "center",
@@ -485,7 +485,7 @@ function App() {
         >
           <p
             style={{
-              fontSize: 32,
+              fontSize: 28,
               fontWeight: 600,
               color: paperTitle ? "black" : "gray",
               textAlign: "center",
