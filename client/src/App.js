@@ -23,10 +23,7 @@ function App() {
   const [userQuery, setUserQuery] = useState("");
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
 
-  const [githubFiles, setGithubFiles] = useState([
-    { title: "index.js", summary: "loren ipsum" },
-    { title: "App.js", summary: "loren ipsum tasdfwef" },
-  ]);
+  const [githubFiles, setGithubFiles] = useState([]);
 
   const resetPaper = () => {
     setPaperTitle("");
@@ -544,8 +541,34 @@ function App() {
                 ? abstractSummary
                 : "Abstract summary will appear here."}
             </div>
+          </div>
 
-            {/* abstract */}
+          {/* right side */}
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "auto",
+              height: "inherit",
+              lineHeight: 2,
+              padding: 32,
+            }}
+          >
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontWeight: 700, paddingBottom: 0 }}>Github Link</p>
+              <a
+                href={githubLink ? githubLink : undefined}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <p style={{ color: githubLink ? "black" : "gray" }}>
+                  {githubLink ? githubLink : "no Github link in paper"}
+                </p>
+              </a>
+            </div>
+
+            {/* code overview */}
             <p style={{ fontWeight: 700, paddingBottom: 0, marginBottom: 8 }}>
               File-by-File Code Overview
             </p>
@@ -557,7 +580,7 @@ function App() {
                 color: githubFiles ? "black" : "gray",
               }}
             >
-              {githubFiles ? (
+              {githubFiles.length ? (
                 <div>
                   <select
                     style={{
@@ -575,153 +598,130 @@ function App() {
                     })}
                   </select>
 
-                  <div>{githubFiles[selectedFileIndex].summary}</div>
+                  <div style={{ marginTop: 6 }}>
+                    {githubFiles[selectedFileIndex].summary}
+                  </div>
                 </div>
               ) : (
-                "Code Overview will appear here."
+                <p style={{ color: "gray" }}>Code Overview will appear here.</p>
               )}
             </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <p style={{ fontWeight: 700, paddingBottom: 0 }}>Github Link</p>
-              <a
-                href={githubLink ? githubLink : undefined}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <p style={{ color: githubLink ? "black" : "gray" }}>
-                  {githubLink ? githubLink : "no Github link in paper"}
-                </p>
-              </a>
-            </div>
           </div>
+        </div>
+      </div>
 
-          {/* right side */}
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              overflow: "auto",
-              height: "inherit",
-              lineHeight: 2,
-              padding: 32,
-            }}
-          >
-            <div
-              style={{
-                flex: 1,
-                width: "100%",
-                alignItems: "center",
-                display: "flex",
-                margin: 0,
-                overflow: "hidden",
-                flexDirection: "column",
-              }}
-            >
-              {/* history */}
+      <div
+        style={{
+          flex: 1,
+          width: 400,
+          border: "1px solid lightgray",
+          height: 400,
+          backgroundColor: "white",
+          borderRadius: 8,
+          alignItems: "center",
+          display: "flex",
+          margin: 0,
+          overflow: "hidden",
+          flexDirection: "column",
+          position: "absolute",
+          bottom: 16,
+          right: 16,
+        }}
+      >
+        {/* history */}
+        <div
+          style={{
+            flex: 1,
+            width: "100%",
+            overflow: "auto",
+            padding: 16,
+          }}
+          id={"messageHistory"}
+        >
+          {messages.map(({ sender, messageContent }, index) => {
+            return (
               <div
                 style={{
-                  flex: 1,
-                  width: "100%",
-                  overflow: "auto",
+                  borderRadius: 8,
+                  backgroundColor: "rgb(240, 240, 240)",
+                  padding: 8,
+                  marginLeft: 16,
+                  marginRight: 16,
                   marginBottom: 16,
+                  lineHeight: 1.5,
                 }}
-                id={"messageHistory"}
+                key={`message ${index}`}
               >
-                {messages.map(({ sender, messageContent }, index) => {
-                  return (
-                    <div
-                      style={{
-                        borderRadius: 8,
-                        backgroundColor: "rgb(240, 240, 240)",
-                        padding: 8,
-                        lineHeight: 1.5,
-                        marginBottom: 16,
-                      }}
-                      key={`message ${index}`}
-                    >
-                      <p
-                        style={{
-                          fontSize: 16,
-                          fontWeight: 700,
-                        }}
-                      >
-                        {sender}
-                      </p>
-                      <span>{messageContent}</span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* question-asking */}
-              <div
-                style={{
-                  position: "relative",
-                  width: "100%",
-                  float: "inline-end",
-                  maxHeight: 100,
-                  padding: 0,
-                  margin: 0,
-                }}
-              >
-                <textarea
-                  // disabled={paperTitle === ""}
-                  autoFocus={paperTitle}
-                  placeholder="Ask a question about this research paper"
+                <p
                   style={{
-                    borderRadius: 8,
-                    margin: 0,
-                    padding: 12,
-                    lineHeight: 2,
-                    border: "1px solid lightgray",
-                    boxSizing: "border-box",
-                    width: "100%",
-                    // height: "100%",
-                    fontFamily: "inherit",
-                    resize: "none",
-                    outline: "none",
-                    verticalAlign: "top",
                     fontSize: 16,
+                    fontWeight: 700,
                   }}
-                  onFocus={(e) => e.preventDefault()}
-                  value={userQuery}
-                  onKeyDown={(e) => {
-                    // user hit enter without shift
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      submitQuery();
-                    }
-                  }}
-                  onChange={(e) => {
-                    setUserQuery(e.currentTarget.value);
-                  }}
-                />
-
-                <div
-                  style={{
-                    position: "absolute",
-                    backgroundColor: "#7532a8",
-                    borderRadius: 8,
-                    bottom: 8,
-                    width: 34,
-                    height: 34,
-                    color: "white",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    right: 8,
-                    fontWeight: 800,
-                    cursor: "pointer",
-                  }}
-                  onClick={(e) => submitQuery()}
                 >
-                  ↑
-                </div>
+                  {sender}
+                </p>
+                <span>{messageContent}</span>
               </div>
-            </div>
-          </div>
+            );
+          })}
+        </div>
+
+        <div
+          style={{ height: 1, backgroundColor: "lightgray", width: "100%" }}
+        />
+        {/* question-asking */}
+
+        <textarea
+          // disabled={paperTitle === ""}
+          autoFocus={paperTitle}
+          placeholder="Ask a question about this research paper"
+          style={{
+            margin: 0,
+            padding: 12,
+            lineHeight: 2,
+            border: "0px solid lightgray",
+            boxSizing: "border-box",
+            width: "100%",
+            // height: "100%",
+            fontFamily: "inherit",
+            resize: "none",
+            outline: "none",
+            verticalAlign: "top",
+            fontSize: 16,
+          }}
+          onFocus={(e) => e.preventDefault()}
+          value={userQuery}
+          onKeyDown={(e) => {
+            // user hit enter without shift
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              submitQuery();
+            }
+          }}
+          onChange={(e) => {
+            setUserQuery(e.currentTarget.value);
+          }}
+        />
+
+        <div
+          style={{
+            position: "absolute",
+            backgroundColor: "#7532a8",
+            borderRadius: 8,
+            bottom: 8,
+            width: 34,
+            height: 34,
+            color: "white",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            right: 8,
+            fontWeight: 800,
+            cursor: "pointer",
+          }}
+          onClick={(e) => submitQuery()}
+        >
+          ↑
         </div>
       </div>
     </div>

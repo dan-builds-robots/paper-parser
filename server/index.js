@@ -51,6 +51,7 @@ app.post("/parsePaper", async (req, res) => {
     { File: paperUrl },
     "pdf"
   );
+  res.send(jsonResponse);
 });
 
 app.post("/extractPaperTitle", async (req, res) => {
