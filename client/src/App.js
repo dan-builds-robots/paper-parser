@@ -3,6 +3,11 @@ import axios from "axios";
 import { useRef, useState } from "react";
 import { examplePaperText, lorenIpsum } from "./stuff";
 
+function hasFileExtension(fileName) {
+  const parts = fileName.split(".");
+  return parts.length > 1;
+}
+
 function App() {
   const [showUploadPanel, setShowUploadPanel] = useState(false);
   const [paperUrl, setPaperUrl] = useState("");
@@ -12,18 +17,21 @@ function App() {
   const [paperTitle, setPaperTitle] = useState("");
   const [abstractSummary, setAbstractSummary] = useState("");
   const [githubLink, setGithubLink] = useState("");
+  const [paperEmbeddings, setPaperEmbeddings] = useState([]);
 
   const [messages, setMessages] = useState([]);
-
   const [userQuery, setUserQuery] = useState("");
-  const [paperEmbeddings, setPaperEmbeddings] = useState([]);
 
   const resetPaper = () => {
     setPaperTitle("");
     setAbstractSummary("");
+    setGithubLink("");
+    setMessages([]);
+    paperEmbeddings([]);
   };
 
   const parsePaper = async () => {
+    resetPaper(true);
     setParsingPaper(true);
     // const paperTextFileResponse = await axios.post(
     //   "http://localhost:8080/parsePaper",
@@ -45,6 +53,7 @@ function App() {
     // get github link
     const githubLink = getGithubLink(paperText);
     setGithubLink(githubLink);
+    getGitFiles();
 
     // get embeddings for paper
     await getPaperEmbeddings(paperText);
@@ -57,27 +66,16 @@ function App() {
     const messageHistory = document.getElementById("messageHistory");
     messageHistory.scrollTop = messageHistory.scrollHeight + 100900;
 
-    console.log("getting query embedding");
-    console.log(`query: ${oldUserQuery}`);
     const queryEmbeddingResponse = await axios.post(
       "http://localhost:8080/createQueryEmbedding",
       { userQuery: oldUserQuery }
     );
 
-    console.log("response:");
-    console.log(queryEmbeddingResponse);
     const queryEmbedding = queryEmbeddingResponse.data;
-    console.log("query embedding:");
-    console.log(queryEmbedding);
-
-    console.log("getting similar parts of paper");
     const relatedPartsOfPaper = getRelevantPartsOfPaper(
       paperEmbeddings,
       queryEmbedding
     );
-
-    console.log("got the most similar parts of paper");
-    console.log(relatedPartsOfPaper);
 
     axios
       .post("http://localhost:8080/questionAnswering", {
@@ -128,26 +126,6 @@ function App() {
     console.log(response);
     setAbstractSummary(response.data);
   };
-
-  // const getGitHubLinks = (text) => {
-  //   let splitText = text.split(/[\s]+/);
-  //   let mainLinks = [];
-  //   let refLinks = [];
-  //   let refIndex = splitText.lastIndexOf("References");
-
-  //   function cleanAndAppend(link, linksList) {
-  //     if (link.slice(-1) === ".") linksList.push(link.slice(0, -1));
-  //     else linksList.push(link);
-  //   }
-
-  //   for (let i = 0; i < splitText.length; i++) {
-  //     if (splitText[i].toLowerCase().includes("github.com")) {
-  //       if (i < refIndex) cleanAndAppend(splitText[i], mainLinks);
-  //       else cleanAndAppend(splitText[i], refLinks);
-  //     }
-  //   }
-  //   return [mainLinks, refLinks];
-  // };
 
   const getGithubLink = (paperText) => {
     // remove all spaces
@@ -221,6 +199,91 @@ function App() {
       .slice(0, 10)
       .map(({ embedding, text, similarity }) => text);
   };
+
+  const getGitFiles = () => {
+    axios
+      .post("http://localhost:8080/githubFiles", {
+        repoUrl: githubLink,
+      })
+      .then(async (response) => {
+        console.log("Content fetched:", response.data.content);
+        const repoFiles = response.data.content;
+        const parsedCodes = {};
+
+        for (let file of repoFiles) {
+          if (hasFileExtension(file)) {
+            const parsedCode = await getGitCode(file);
+            if (/\S/.test(parsedCode)) {
+              // Check if contains non-whitespace characters
+              parsedCodes[file] = parsedCode;
+            }
+            // console.log("parsed code", parsedCode)
+            return getCodeSummaries(parsedCodes);
+          }
+        }
+        console.log("parsed code", Object.keys(parsedCodes));
+      })
+      .catch((error) => {
+        console.error("Error fetching content:", error);
+      });
+  };
+
+  const getGitCode = async (file) => {
+    const urlParts = githubLink.split("/");
+    const owner = urlParts[urlParts.length - 2];
+    const repoName = urlParts[urlParts.length - 1].replace(".git", "");
+    const filePath = file;
+    // console.log("current file", filePath);
+
+    // Fetch file content using GitHub API
+    return axios
+      .get(
+        `https://api.github.com/repos/${owner}/${repoName}/contents/${filePath}`
+      )
+      .then(async (response) => {
+        const content = response.data.content
+          ? atob(response.data.content)
+          : ""; // Check if content is not falsy
+        return content;
+      })
+      .catch((error) => {
+        console.error("Error fetching content:", error);
+      });
+  };
+
+  const getCodeSummaries = (parsedcodeMap) => {
+    let summarizedCode = {};
+    const filenames = Object.keys(parsedcodeMap);
+    const sendRequest = async (filename) => {
+      try {
+        const response = await axios.post(
+          "http://localhost:8080/githubSummaries",
+          {
+            parsedCode: parsedcodeMap[filename],
+          }
+        );
+        console.log("Content fetched:", response.data.toString());
+        summarizedCode[filename] = response.data.toString();
+      } catch (error) {
+        console.error("Error fetching content:", error);
+      }
+    };
+
+    const sendRequestsSequentially = async () => {
+      for (let filename of filenames) {
+        await sendRequest(filename);
+        // Add a delay between each request (e.g., 1 second)
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+      console.log(summarizedCode);
+    };
+    sendRequestsSequentially();
+  };
+
+  //should be able to take output from getGitFiles and pass that into
+  // another function that gets it code
+  // then use a final 3rd function to take this code, sent it to together.ai
+  // and also return its explanation/parsed infor back from together.ai
 
   return (
     <div
