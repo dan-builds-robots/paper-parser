@@ -212,7 +212,7 @@ function App() {
 
         for (let file of repoFiles) {
           if (hasFileExtension(file)) {
-            const parsedCode = await getGitCode(file);
+            const parsedCode = await getGitCode(githubLink, file);
             if (/\S/.test(parsedCode)) {
               // Check if contains non-whitespace characters
               parsedCodes[file] = parsedCode;
@@ -221,17 +221,20 @@ function App() {
             return getCodeSummaries(parsedCodes);
           }
         }
-        console.log("parsed code", Object.keys(parsedCodes));
+        // console.log("parsed code", Object.keys(parsedCodes)); CURRENTLY ERRORING
       })
       .catch((error) => {
         console.error("Error fetching content:", error);
       });
   };
 
-  const getGitCode = async (file) => {
+  const getGitCode = async (githubLink, file) => {
     const urlParts = githubLink.split("/");
+    console.log("urlParts", urlParts); 
     const owner = urlParts[urlParts.length - 2];
+    console.log("owner", owner); 
     const repoName = urlParts[urlParts.length - 1].replace(".git", "");
+    console.log("repo name", repoName); 
     const filePath = file;
     // console.log("current file", filePath);
 
