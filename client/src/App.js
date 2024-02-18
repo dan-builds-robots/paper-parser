@@ -1,28 +1,41 @@
 import "./App.css";
 import axios from "axios";
 import { useState } from "react";
-import { lorenIpsum } from "./stuff";
+import { examplePaperText, lorenIpsum } from "./stuff";
 
 function App() {
   const [showUploadPanel, setShowUploadPanel] = useState(false);
   const [paperUrl, setPaperUrl] = useState("");
-  const [fetching, setFetching] = useState(false);
+  const [parsingPaper, setParsingPaper] = useState(false);
   const [paperText, setPaperText] = useState(false);
   const [paperTitle, setPaperTitle] = useState("");
   const [abstractSummary, setAbstractSummary] = useState("");
 
-  const parsePaper = () => {
-    axios
-      .post("http://localhost:8080/parsePaper", { paperUrl: paperUrl })
-      .then(async (paperTextFileResponse) => {
-        setFetching(false);
-        const paperTextFile = paperTextFileResponse.data;
-        console.log(paperTextFile);
-        const paperText_ = await (await fetch(paperTextFile.Url)).text();
-        console.log(paperText_);
-        setPaperText(paperText_);
-        setShowUploadPanel(false);
-      });
+  const parsePaper = async () => {
+    setParsingPaper(true);
+    const paperTextFileResponse = await axios.post(
+      "http://localhost:8080/parsePaper",
+      { paperUrl: paperUrl }
+    );
+    setParsingPaper(false);
+    const paperTextFile = paperTextFileResponse.data;
+    const paperText_ = await (await fetch(paperTextFile.Url)).text();
+    console.log(paperText_);
+    setPaperText(paperText_);
+    setShowUploadPanel(false);
+
+    // get title of paper
+    extractTitle(paperText_);
+  };
+
+  const extractTitle = async (paperText_) => {
+    console.log("extracting title...");
+    const response = await axios.post("http://localhost:8080/extractTitle", {
+      paperText: paperText_,
+    });
+    console.log("got title response");
+    console.log(response);
+    setPaperTitle(response.data);
   };
 
   return (
@@ -136,7 +149,6 @@ function App() {
             onSubmit={(e) => {
               e.preventDefault();
               parsePaper();
-              setFetching(true);
             }}
             style={{
               padding: 20,
@@ -175,6 +187,7 @@ function App() {
                 padding: 8,
                 fontSize: 16,
               }}
+              defaultValue={paperUrl}
               onChange={(e) => setPaperUrl(e.currentTarget.value)}
             />
             <button
@@ -186,13 +199,14 @@ function App() {
                 padding: 12,
                 borderRadius: 8,
                 border: "none",
-                cursor: "pointer",
+                cursor: parsingPaper ? "auto" : "pointer",
                 fontWeight: 700,
                 marginTop: 8,
+                opacity: parsingPaper ? 0.5 : 1,
               }}
-              disabled={fetching}
+              disabled={parsingPaper}
             >
-              {!fetching ? "Parse Paper" : "Parsing your paper..."}
+              {!parsingPaper ? "Parse Paper" : "Parsing your paper..."}
             </button>
           </form>
         </>
