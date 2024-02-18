@@ -10,6 +10,29 @@ app.use(express.json());
 // togetherAI for parsing paper
 const togetherAiApiKey = `144629e6c6117568ac2c1d3646c1c574828cee3d6f81fd30b75b46d1548cd0b2`;
 
+const getTogetherAiOptions = (prompt) => {
+  return {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      Authorization: `Bearer ${togetherAiApiKey}`,
+    },
+
+    body: JSON.stringify({
+      model: "mistralai/Mixtral-8x7B-Instruct-v0.1",
+      prompt: prompt,
+      max_tokens: 512,
+      stop: ["</s>", "[/INST]"],
+      temperature: 0.7,
+      top_p: 0.7,
+      top_k: 50,
+      repetition_penalty: 1,
+      n: 1,
+    }),
+  };
+};
+
 // for scraping text from paper pdf
 const convertapi = ConvertAPI("MXRK9lRTHxS6nXYt");
 
@@ -36,7 +59,7 @@ app.post("/parsePaper", async (req, res) => {
   res.send(paperTextFile);
 });
 
-app.post("/extractTitle", async (req, res) => {
+app.post("/extractPaperTitle", async (req, res) => {
   const paperText = req.body.paperText;
   console.log("paperText");
   console.log(paperText);
@@ -50,34 +73,40 @@ app.post("/extractTitle", async (req, res) => {
   console.log(`here is the prompt:`);
   console.log(prompt);
 
-  const options = {
-    method: "POST",
-    headers: {
-      accept: "application/json",
-      "content-type": "application/json",
-      Authorization: `Bearer ${togetherAiApiKey}`,
-    },
-
-    body: JSON.stringify({
-      model: "mistralai/Mixtral-8x7B-Instruct-v0.1",
-      prompt: prompt,
-      max_tokens: 512,
-      stop: ["</s>", "[/INST]"],
-      temperature: 0.7,
-      top_p: 0.7,
-      top_k: 50,
-      repetition_penalty: 1,
-      n: 1,
-    }),
-  };
-
-  fetch("https://api.together.xyz/v1/completions", options)
+  fetch("https://api.together.xyz/v1/completions", getTogetherAiOptions(prompt))
     .then((response) => response.json())
     .then((response) => {
       console.log(response);
       const paperTitleJsonString = response.choices[0].text;
       const paperTitle = JSON.parse(paperTitleJsonString).paperTitle;
       res.send(paperTitle);
+    })
+    .catch((err) => res.send(err));
+});
+
+app.post("/extractPaperAbstractSummary", async (req, res) => {
+  const paperText = req.body.paperText;
+  console.log("paperText");
+  console.log(paperText);
+  console.log(typeof paperText);
+
+  const prompt = `Below is the first several words of a research paper: \n${req.body.paperText.substring(
+    0,
+    1000
+  )}\nReturn a summary of the abstract of this paper in the following format: {"abstractSummary": "<summary of abstract>"}`;
+
+  console.log(`here is the prompt:`);
+  console.log(prompt);
+
+  fetch("https://api.together.xyz/v1/completions", getTogetherAiOptions(prompt))
+    .then((response) => response.json())
+    .then((response) => {
+      console.log(response);
+      const abstractSummaryJsonString = response.choices[0].text;
+      const paperAbstractSummary = JSON.parse(
+        abstractSummaryJsonString
+      ).abstractSummary;
+      res.send(paperAbstractSummary);
     })
     .catch((err) => res.send(err));
 });

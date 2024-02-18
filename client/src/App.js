@@ -7,10 +7,16 @@ function App() {
   const [showUploadPanel, setShowUploadPanel] = useState(false);
   const [paperUrl, setPaperUrl] = useState("");
   const [parsingPaper, setParsingPaper] = useState(false);
-  const [paperText, setPaperText] = useState(false);
+
+  // paper information
   const [paperTitle, setPaperTitle] = useState("");
   const [abstractSummary, setAbstractSummary] = useState("");
+  const [githubLink, setGithubLink] = useState("");
 
+  const resetPaper = () => {
+    setPaperTitle("");
+    setAbstractSummary("");
+  };
   const parsePaper = async () => {
     setParsingPaper(true);
     const paperTextFileResponse = await axios.post(
@@ -19,23 +25,69 @@ function App() {
     );
     setParsingPaper(false);
     const paperTextFile = paperTextFileResponse.data;
-    const paperText_ = await (await fetch(paperTextFile.Url)).text();
-    console.log(paperText_);
-    setPaperText(paperText_);
+    const paperText = await (await fetch(paperTextFile.Url)).text();
+    // const paperText = examplePaperText;
+    console.log(paperText);
     setShowUploadPanel(false);
 
     // get title of paper
-    extractTitle(paperText_);
+    extractPaperTitle(paperText);
+
+    // get summary of paper's abstract
+    extractPaperAbstractSummary(paperText);
+
+    const githubLinks = getGitHubLinks(paperText);
+    console.log(`github links...`);
+    console.log(githubLinks);
+
+    const _githubLink = githubLinks[1][0];
+    setGithubLink(_githubLink);
   };
 
-  const extractTitle = async (paperText_) => {
+  const extractPaperTitle = async (paperText) => {
     console.log("extracting title...");
-    const response = await axios.post("http://localhost:8080/extractTitle", {
-      paperText: paperText_,
-    });
-    console.log("got title response");
+    const response = await axios.post(
+      "http://localhost:8080/extractPaperTitle",
+      {
+        paperText: paperText,
+      }
+    );
+    console.log("got title response:");
     console.log(response);
     setPaperTitle(response.data);
+  };
+
+  const extractPaperAbstractSummary = async (paperText) => {
+    console.log("extracting abstract summary...");
+    const response = await axios.post(
+      "http://localhost:8080/extractPaperAbstractSummary",
+      {
+        paperText: paperText,
+      }
+    );
+    console.log("got abstract response:");
+    console.log(response);
+    setAbstractSummary(response.data);
+  };
+
+  const getGitHubLinks = (text) => {
+    let splitText = text.split(/[\s \n]+/);
+    let mainLinks = [];
+    let refLinks = [];
+    let refIndex = splitText.lastIndexOf("References");
+
+    function clean_and_append(link, linksList) {
+      if (link.slice(-1) === ".") linksList.push(link.slice(0, -1));
+      else linksList.push(link);
+    }
+
+    for (let i = 0; i < splitText.length; i++) {
+      if (splitText[i].toLowerCase().includes("github.com")) {
+        if (i < refIndex) clean_and_append(splitText[i], mainLinks);
+        else clean_and_append(splitText[i], refLinks);
+      }
+    }
+    return [mainLinks, refLinks];
   };
 
   return (
@@ -227,11 +279,12 @@ function App() {
         <div
           style={{
             height: 120,
-            width: "100%",
             display: "flex",
             alignItems: "flex-end",
             justifyContent: "center",
             paddingBottom: 20,
+            marginLeft: 32,
+            marginRight: 32,
           }}
         >
           <p
@@ -239,6 +292,7 @@ function App() {
               fontSize: 32,
               fontWeight: 600,
               color: paperTitle ? "black" : "gray",
+              textAlign: "center",
             }}
           >
             {paperTitle ? paperTitle : "Paper Title"}
@@ -302,6 +356,19 @@ function App() {
               lineHeight: 2,
             }}
           >
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontWeight: 700, paddingBottom: 0 }}>Github Link</p>
+              <a
+                href={githubLink ? githubLink : undefined}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <p style={{ color: githubLink ? "black" : "gray" }}>
+                  {githubLink ? githubLink : "no Github link in paper"}
+                </p>
+              </a>
+            </div>
+
             {/* abstract */}
             <p style={{ fontWeight: 700, paddingBottom: 0 }}>Code Overview</p>
             <div
