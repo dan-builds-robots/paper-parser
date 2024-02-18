@@ -212,20 +212,25 @@ app.post("/questionAnswering", async (req, res) => {
     .catch((err) => res.send(err));
 });
 
-// Define a route to fetch content of files from GitHub repository
-app.post("/githubContent", async (req, res) => {
-  console.log("got here");
-  try {
-    const { repoUrl, filePath } = req.body;
-    // const { repoUrl, filePath } = req.query;
-    if (!repoUrl || !filePath) {
-      return res
-        .status(400)
-        .json({ error: "Repo URL and file path are required" });
-    }
+// async function listRepositoryContents(owner, repo, path = '') {
+//   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+//   try {
+//     const response = await axios.get(url);
+//     return response.data.map(item => item.path);
+//   } catch (error) {
+//     console.error('Error listing repository contents:', error);
+//     throw error;
+//   }
+// }
 
-    console.log("got here");
-    // Extract owner and repo name from the 5GitHub URL
+app.post("/githubFiles", async (req, res) => {
+  // const path = ''
+  try {
+    const { repoUrl } = req.body;
+    if (!repoUrl) {
+      return res.status(400).json({ error: "Repo URL is required" });
+    }
+    // Extract owner and repo name from the GitHub URL
     const urlParts = repoUrl.split("/");
     console.log("url Parts", urlParts);
     const owner = urlParts[urlParts.length - 2];
@@ -235,13 +240,12 @@ app.post("/githubContent", async (req, res) => {
 
     // Fetch file content using GitHub API
     const response = await axios.get(
-      `https://api.github.com/repos/${owner}/${repoName}/contents/${filePath}`
+      `https://api.github.com/repos/${owner}/${repoName}/contents`
     );
-    const content = Buffer.from(response.data.content, "base64").toString(
-      "utf-8"
-    );
-    console.log("success, here is content: ");
-    console.log(content);
+    // const content = Buffer.from(response.data.content, 'base64').toString('utf-8');
+    const content = response.data.map((item) => item.path);
+    // console.log("success, here is content: ")
+    // console.log(content)
 
     res.status(200).json({ content });
   } catch (error) {

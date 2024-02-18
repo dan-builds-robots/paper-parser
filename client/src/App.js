@@ -3,6 +3,15 @@ import axios from "axios";
 import { useRef, useState } from "react";
 import { examplePaperText, lorenIpsum } from "./stuff";
 
+// need to be able to get file path for each file in repo
+// api request that can get the list of file paths given repo link
+const PLACEHOLDER = "https://github.com/uhlerlab/STACI";
+
+function hasFileExtension(fileName) {
+  const parts = fileName.split(".");
+  return parts.length > 1;
+}
+
 function App() {
   const [showUploadPanel, setShowUploadPanel] = useState(false);
   const [paperUrl, setPaperUrl] = useState("");
@@ -27,7 +36,7 @@ function App() {
 
   const parsePaper = async () => {
     setParsingPaper(true);
-    getGitContent();
+    // getGitContent();
     // const paperTextFileResponse = await axios.post(
     //   "http://localhost:8080/parsePaper",
     //   { paperUrl: paperUrl }
@@ -225,23 +234,73 @@ function App() {
       .map(({ embedding, text, similarity }) => text);
   };
 
-  const getGitContent = () => {
-    // console.log("got here");
+  const getGitFiles = () => {
     axios
-      .post("http://localhost:8080/githubContent", {
-        repoUrl: "https://github.com/uhlerlab/STACI",
-        filePath: "clusterComposition.ipynb",
+      .post("http://localhost:8080/githubFiles", {
+        repoUrl: PLACEHOLDER, //later change this to gitHublink
       })
       .then(async (response) => {
         console.log("Content fetched:", response.data.content);
-        setGithubText(response.data.content);
-        setFetching(false);
+        const repoFiles = response.data.content;
+        const parsedCodes = {};
+
+        for (let file of repoFiles) {
+          if (hasFileExtension(file)) {
+            const parsedCode = await getGitCode(file);
+            if (/\S/.test(parsedCode)) {
+              // Check if contains non-whitespace characters
+              parsedCodes[file] = parsedCode;
+            }
+            // console.log("parsed code", parsedCode)
+          }
+        }
+        console.log("parsed code", Object.keys(parsedCodes));
+        // console.log(parsedCodes['.gitmodules'])
+        // console.log(parsedCodes['.gitignore'])
+        // return response.data.content;
+        // setGithubText(response.data.content);
       })
       .catch((error) => {
         console.error("Error fetching content:", error);
-        setFetching(false);
       });
   };
+
+  const getGitCode = (file) => {
+    // try {
+    const repoUrl = PLACEHOLDER;
+    const urlParts = repoUrl.split("/");
+    const owner = urlParts[urlParts.length - 2];
+    const repoName = urlParts[urlParts.length - 1].replace(".git", "");
+    const filePath = file;
+    console.log("current file", filePath);
+
+    // Fetch file content using GitHub API
+    return axios
+      .get(
+        `https://api.github.com/repos/${owner}/${repoName}/contents/${filePath}`
+      )
+      .then(async (response) => {
+        // const content = Buffer.from(response.data.content, 'base64').toString('utf-8');
+        const content = response.data.content
+          ? atob(response.data.content)
+          : ""; // Check if content is not falsy
+        // console.log("success, here is code content: ")
+        // console.log(content)
+        return content;
+      })
+      .catch((error) => {
+        console.error("Error fetching content:", error);
+      });
+  };
+
+  const getCodeSummaries = () => {
+    // want this to also account for overall code spec
+  };
+
+  //should be able to take output from getGitFiles and pass that into
+  // another function that gets it code
+  // then use a final 3rd function to take this code, sent it to together.ai
+  // and also return its explanation/parsed infor back from together.ai
 
   return (
     <div
